@@ -31,6 +31,7 @@ With sync routes, each request blocks the worker → low concurrenc
 
 
 uvicorn fastapi_app:app --reload
+uvicorn Day4.fastAPIDemo:app --reload
 
 
 http://127.0.0.1:8000/docs
