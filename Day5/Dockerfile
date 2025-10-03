@@ -1,19 +1,14 @@
+
 FROM python:3.11-slim
 
-# Create a non-root user
-RUN useradd --create-home appuser
-WORKDIR /home/appuser
+WORKDIR /app
 
-# Copy only requirements for a small image
-COPY Day5/requirements.txt ./
-RUN pip install --no-cache-dir -r Day5/requirements.txt
+# Copy requirements and install
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app
-COPY . /home/appuser
-RUN chown -R appuser:appuser /home/appuser
-USER appuser
-
-ENV PYTHONUNBUFFERED=1
+# Copy only the API file
+COPY user_api.py ./
 
 EXPOSE 5000
-CMD ["uvicorn", "src.day4:app", "--host", "0.0.0.0", "--port", "5000"]
+CMD ["uvicorn", "user_api:app", "--host", "0.0.0.0", "--port", "5000"]
