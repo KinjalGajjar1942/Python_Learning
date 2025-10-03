@@ -24,7 +24,7 @@ summarizer_model = pipeline("summarization")
 class TextRequest(BaseModel):
     text: str
 
-# 1️⃣ Sentiment API
+# 1️Sentiment API
 @app.post("/sentiment")
 async def sentiment(request: TextRequest):
     """
@@ -33,7 +33,7 @@ async def sentiment(request: TextRequest):
     result = sentiment_model(request.text)
     return {"input": request.text, "sentiment": result}
 
-# 2️⃣ Summary API
+# 2️ Summary API
 @app.post("/summary")
 async def summarize(request: TextRequest):
     """

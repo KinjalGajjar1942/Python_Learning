@@ -2,12 +2,12 @@ import time
 import json
 from transformers import pipeline
 
-# 1️⃣ Sample 50 sentences
+# 1️ Sample 50 sentences
 sentences = [
     f"This is sentence number {i}. I love testing models!" for i in range(1, 51)
 ]
 
-# 2️⃣ Initialize pipelines
+# 2️Initialize pipelines
 # DistilBERT (smaller/faster)
 distilbert_pipeline = pipeline(
     "sentiment-analysis",
@@ -20,7 +20,7 @@ bert_pipeline = pipeline(
     model="nlptown/bert-base-multilingual-uncased-sentiment"
 )
 
-# 3️⃣ Helper function to measure time
+# 3️ Helper function to measure time
 def measure_inference(pipeline_model, sentences):
     start_time = time.time()
     results = pipeline_model(sentences)
@@ -28,15 +28,15 @@ def measure_inference(pipeline_model, sentences):
     elapsed_time = end_time - start_time
     return elapsed_time, results
 
-# 4️⃣ Measure DistilBERT
+# 4️ Measure DistilBERT
 distil_time, distil_results = measure_inference(distilbert_pipeline, sentences)
 print(f"DistilBERT took {distil_time:.2f} seconds for {len(sentences)} sentences.")
 
-# 5️⃣ Measure BERT
+# 5️ Measure BERT
 bert_time, bert_results = measure_inference(bert_pipeline, sentences)
 print(f"BERT took {bert_time:.2f} seconds for {len(sentences)} sentences.")
 
-# 6️⃣ Save results to JSON
+# 6️ Save results to JSON
 log_data = {
     "num_sentences": len(sentences),
     "distilbert_time_sec": distil_time,

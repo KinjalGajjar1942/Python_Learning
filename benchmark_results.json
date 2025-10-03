@@ -1,7 +1,7 @@
 {
     "num_sentences": 50,
-    "distilbert_time_sec": 0.9217369556427002,
-    "bert_time_sec": 0.7065739631652832,
+    "distilbert_time_sec": 0.4635317325592041,
+    "bert_time_sec": 0.6592569351196289,
     "distilbert_results": [
         {
             "label": "POSITIVE",

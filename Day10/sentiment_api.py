@@ -2,17 +2,17 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from transformers import pipeline
 
-# 1️⃣ Define request schema
+# 1️Define request schema
 class TextRequest(BaseModel):
     text: str
 
-# 2️⃣ Initialize FastAPI app
+# 2️Initialize FastAPI app
 app = FastAPI(title="Sentiment Analysis API")
 
-# 3️⃣ Load Hugging Face pipeline (runs once on startup)
+# 3️Load Hugging Face pipeline (runs once on startup)
 sentiment_pipeline = pipeline("sentiment-analysis")
 
-# 4️⃣ Define POST endpoint
+# 4️Define POST endpoint
 @app.post("/analyze")
 def analyze_sentiment(request: TextRequest):
     """
@@ -26,7 +26,7 @@ def analyze_sentiment(request: TextRequest):
         "score": float(result["score"])
     }
 
-# 5️⃣ Root endpoint (optional)
+# 5️ Root endpoint (optional)
 @app.get("/")
 def read_root():
     return {"message": "Sentiment Analysis API is running!"}
