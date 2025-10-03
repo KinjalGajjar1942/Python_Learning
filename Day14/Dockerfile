@@ -1,20 +1,19 @@
-# Use Python slim image
 FROM python:3.11-slim
 
-# Set working directory
-WORKDIR /app
+# Create a non-root user
+RUN useradd --create-home appuser
+WORKDIR /home/appuser
 
-# Copy requirements first (for better caching)
-COPY requirements.txt .
+# Copy only requirements for a small image
+COPY Day14/requirements.txt ./
+RUN pip install --no-cache-dir -r Day14/requirements.txt
 
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy app
+COPY . /home/appuser
+RUN chown -R appuser:appuser /home/appuser
+USER appuser
 
-# Copy application code
-COPY testApi.py .
+ENV PYTHONUNBUFFERED=1
 
-# Expose port
 EXPOSE 8000
-
-# Run the application
-CMD ["uvicorn", "testApi:app", "--host", "0.0.0.0", "--port", "5000"]
+CMD ["uvicorn", "src.day4:app", "--host", "0.0.0.0", "--port", "8000"]
