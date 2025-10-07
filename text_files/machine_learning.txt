@@ -1,0 +1,1 @@
+Machine learning is a branch of artificial intelligence that uses algorithms to learn from data. Supervised learning uses labeled data, while unsupervised learning finds patterns in unlabeled data.

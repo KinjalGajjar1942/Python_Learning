@@ -1,0 +1,1 @@
+Artificial Intelligence (AI) is computer science focused on creating intelligent machines. AI systems can learn, reason, and solve problems like humans. Machine learning and neural networks are key AI technologies.

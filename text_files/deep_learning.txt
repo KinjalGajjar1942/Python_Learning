@@ -1,0 +1,1 @@
+Deep learning uses artificial neural networks with multiple layers to process data. These networks can recognize images, understand speech, and translate languages. It's a powerful AI technique.
