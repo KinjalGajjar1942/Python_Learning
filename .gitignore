@@ -3,3 +3,14 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# Environment variables (contains sensitive tokens)
+.env
+*.env
+.env.local
+.env.production
+
+# API Keys and secrets
+config/secrets.py
+secrets/
+keys/
