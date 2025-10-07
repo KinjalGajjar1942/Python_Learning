@@ -65,7 +65,7 @@ def demo():
         print("\n=== Processing Sample File ===")
         content = loader.load_txt("sample_document.txt")
         if content:
-            print(f"File length: {len(content)} characters")
+            print(f"File length: {len(content)} characterss")
             file_summary = summarizer.extractive_summary(content)
             print(f"\nFile Summary:\n{file_summary}")
 
