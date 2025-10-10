@@ -1,331 +1,242 @@
 """
-Embeddings & Vector Stores with FAISS
-Day 18 - Python Learning
-
-Features:
-- Create sentence embeddings
-- Store text files in FAISS vector database
-- Similarity search functionality
-- Query: "Which file talks about AI?"
+Day 18 - Embeddings & Vector Stores with FAISS
+Fixed version with proper imports and sample data
 """
 
 import os
-import numpy as np
-from typing import List, Tuple, Dict
-import pickle
+from typing import List, Dict
 
-# Try to import required libraries
+# Updated imports (no deprecation warnings)
 try:
-    import faiss
-    FAISS_AVAILABLE = True
-except ImportError:
-    FAISS_AVAILABLE = False
-    print("FAISS not available. Install with: pip install faiss-cpu")
+    from langchain_community.document_loaders import TextLoader
+    from langchain_core.documents import Document
+    from langchain_text_splitters import CharacterTextSplitter
+    from langchain_openai import OpenAIEmbeddings
+    from langchain_community.vectorstores.faiss import FAISS
+    LANGCHAIN_AVAILABLE = True
+except ImportError as e:
+    print(f"LangChain packages not available: {e}")
+    LANGCHAIN_AVAILABLE = False
 
-try:
-    from sentence_transformers import SentenceTransformer
-    SENTENCE_TRANSFORMERS_AVAILABLE = True
-except ImportError:
-    SENTENCE_TRANSFORMERS_AVAILABLE = False
-    print("Sentence Transformers not available. Install with: pip install sentence-transformers")
+# ----------------------
+# Set your OpenAI API key (if you have one)
+# ----------------------
+# os.environ["OPENAI_API_KEY"] = "sk-your-actual-key-here"  # Replace with real key
 
-class SimpleEmbeddings:
-    """Simple embedding class using basic word counting as fallback."""
-    
-    def __init__(self):
-        self.vocab = {}
-        self.dimension = 100
-    
-    def create_simple_embedding(self, text: str) -> np.ndarray:
-        """Create a simple embedding using word frequency."""
-        words = text.lower().split()
-        embedding = np.zeros(self.dimension)
-        
-        # Simple hash-based embedding
-        for word in words:
-            hash_value = hash(word) % self.dimension
-            embedding[hash_value] += 1
-        
-        # Normalize
-        norm = np.linalg.norm(embedding)
-        if norm > 0:
-            embedding = embedding / norm
-            
-        return embedding.astype(np.float32)
+# ----------------------
+# 1️⃣ Create and load 10 text files
+# ----------------------
 
-class VectorStore:
-    """Vector store using FAISS for similarity search."""
-    
-    def __init__(self, use_sentence_transformers: bool = True):
-        self.use_sentence_transformers = use_sentence_transformers and SENTENCE_TRANSFORMERS_AVAILABLE
-        self.dimension = 384 if self.use_sentence_transformers else 100
-        
-        # Initialize embedding model
-        if self.use_sentence_transformers:
-            try:
-                self.model = SentenceTransformer('all-MiniLM-L6-v2')
-                self.dimension = self.model.get_sentence_embedding_dimension()
-            except Exception as e:
-                print(f"Error loading sentence transformer: {e}")
-                self.use_sentence_transformers = False
-                self.model = SimpleEmbeddings()
-                self.dimension = 100
-        else:
-            self.model = SimpleEmbeddings()
-        
-        # Initialize FAISS index
-        if FAISS_AVAILABLE:
-            self.index = faiss.IndexFlatIP(self.dimension)  # Inner product for cosine similarity
-        else:
-            self.index = None
-            self.embeddings = []
-        
-        self.documents = []
-        self.metadata = []
-    
-    def encode_text(self, text: str) -> np.ndarray:
-        """Encode text to embedding vector."""
-        if self.use_sentence_transformers:
-            embedding = self.model.encode(text)
-            # Normalize for cosine similarity
-            embedding = embedding / np.linalg.norm(embedding)
-            return embedding.astype(np.float32)
-        else:
-            return self.model.create_simple_embedding(text)
-    
-    def add_document(self, text: str, metadata: Dict = None):
-        """Add a document to the vector store."""
-        if metadata is None:
-            metadata = {}
-        
-        # Create embedding
-        embedding = self.encode_text(text)
-        
-        # Add to index
-        if FAISS_AVAILABLE:
-            self.index.add(embedding.reshape(1, -1))
-        else:
-            self.embeddings.append(embedding)
-        
-        # Store document and metadata
-        self.documents.append(text)
-        self.metadata.append(metadata)
-    
-    def search(self, query: str, k: int = 3) -> List[Tuple[str, float, Dict]]:
-        """Search for similar documents."""
-        query_embedding = self.encode_text(query)
-        
-        if FAISS_AVAILABLE:
-            # Search using FAISS
-            scores, indices = self.index.search(query_embedding.reshape(1, -1), k)
-            
-            results = []
-            for i, (score, idx) in enumerate(zip(scores[0], indices[0])):
-                if idx != -1:  # Valid result
-                    results.append((
-                        self.documents[idx],
-                        float(score),
-                        self.metadata[idx]
-                    ))
-            return results
-        else:
-            # Fallback similarity search
-            similarities = []
-            for i, doc_embedding in enumerate(self.embeddings):
-                similarity = np.dot(query_embedding, doc_embedding)
-                similarities.append((similarity, i))
-            
-            # Sort by similarity
-            similarities.sort(reverse=True)
-            
-            results = []
-            for similarity, idx in similarities[:k]:
-                results.append((
-                    self.documents[idx],
-                    float(similarity),
-                    self.metadata[idx]
-                ))
-            
-            return results
-    
-    def save(self, filepath: str):
-        """Save the vector store."""
-        data = {
-            'documents': self.documents,
-            'metadata': self.metadata,
-            'dimension': self.dimension,
-            'use_sentence_transformers': self.use_sentence_transformers
-        }
-        
-        if FAISS_AVAILABLE:
-            # Save FAISS index
-            faiss.write_index(self.index, f"{filepath}.faiss")
-        else:
-            # Save embeddings
-            data['embeddings'] = self.embeddings
-        
-        # Save metadata
-        with open(f"{filepath}.pkl", 'wb') as f:
-            pickle.dump(data, f)
-    
-    def load(self, filepath: str):
-        """Load the vector store."""
-        # Load metadata
-        with open(f"{filepath}.pkl", 'rb') as f:
-            data = pickle.load(f)
-        
-        self.documents = data['documents']
-        self.metadata = data['metadata']
-        self.dimension = data['dimension']
-        
-        if FAISS_AVAILABLE and os.path.exists(f"{filepath}.faiss"):
-            # Load FAISS index
-            self.index = faiss.read_index(f"{filepath}.faiss")
-        else:
-            # Load embeddings
-            self.embeddings = data.get('embeddings', [])
-
-def create_sample_text_files():
+def create_sample_files():
     """Create 10 sample text files for testing."""
     
-    sample_texts = [
-        {
-            "filename": "ai_introduction.txt",
-            "content": "Artificial Intelligence (AI) is the simulation of human intelligence in machines. AI systems can learn, reason, and make decisions. Machine learning and deep learning are key components of modern AI."
-        },
-        {
-            "filename": "machine_learning.txt", 
-            "content": "Machine learning is a subset of artificial intelligence that focuses on algorithms that can learn from data. Popular techniques include supervised learning, unsupervised learning, and reinforcement learning."
-        },
-        {
-            "filename": "cooking_recipe.txt",
-            "content": "This delicious pasta recipe requires tomatoes, garlic, olive oil, and basil. Cook the pasta al dente, sauté garlic in olive oil, add tomatoes and basil. Serve hot with parmesan cheese."
-        },
-        {
-            "filename": "sports_news.txt",
-            "content": "The football championship will take place next weekend. Teams have been training intensively for months. Fans are excited to see their favorite players compete for the trophy."
-        },
-        {
-            "filename": "deep_learning.txt",
-            "content": "Deep learning uses artificial neural networks with multiple layers to model complex patterns. Convolutional neural networks excel at image recognition while recurrent networks handle sequential data."
-        },
-        {
-            "filename": "travel_guide.txt",
-            "content": "Paris is known for the Eiffel Tower, Louvre Museum, and delicious croissants. The best time to visit is spring or fall. Don't forget to try authentic French cuisine and visit the charming neighborhoods."
-        },
-        {
-            "filename": "python_programming.txt",
-            "content": "Python is a versatile programming language used for web development, data science, and automation. Its simple syntax makes it beginner-friendly. Popular libraries include NumPy, Pandas, and TensorFlow."
-        },
-        {
-            "filename": "climate_change.txt",
-            "content": "Climate change refers to long-term shifts in global temperatures and weather patterns. Human activities like burning fossil fuels contribute to greenhouse gas emissions. Renewable energy is crucial for mitigation."
-        },
-        {
-            "filename": "neural_networks.txt",
-            "content": "Neural networks are computing systems inspired by biological neural networks. They consist of interconnected nodes that process information. Artificial neural networks power many AI applications today."
-        },
-        {
-            "filename": "gardening_tips.txt",
-            "content": "Successful gardening requires proper soil, adequate watering, and sufficient sunlight. Choose plants suitable for your climate zone. Regular pruning and fertilizing help plants grow healthy and strong."
-        }
-    ]
-    
-    # Create directory if it doesn't exist
-    os.makedirs("sample_texts", exist_ok=True)
-    
-    created_files = []
-    for item in sample_texts:
-        filepath = os.path.join("sample_texts", item["filename"])
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(item["content"])
-        created_files.append(filepath)
+    sample_texts = {
+        "file1.txt": "Artificial Intelligence (AI) is revolutionizing technology. Machine learning algorithms enable computers to learn from data without explicit programming. AI applications include natural language processing, computer vision, and robotics.",
         
-    return created_files
+        "file2.txt": "Python is a versatile programming language used in web development, data science, and automation. Its simple syntax makes it beginner-friendly. Popular frameworks include Django, Flask, and FastAPI.",
+        
+        "file3.txt": "Machine learning is a subset of artificial intelligence that focuses on algorithms that can learn from data. Supervised learning uses labeled datasets, while unsupervised learning finds patterns in unlabeled data.",
+        
+        "file4.txt": "Climate change refers to long-term shifts in global weather patterns. Rising temperatures, melting glaciers, and extreme weather events are key indicators. Renewable energy sources are crucial for mitigation.",
+        
+        "file5.txt": "Deep learning uses artificial neural networks with multiple layers to process complex data. Convolutional Neural Networks (CNNs) excel at image recognition, while Transformers are powerful for natural language tasks.",
+        
+        "file6.txt": "Web development involves creating websites and web applications. Frontend technologies include HTML, CSS, and JavaScript. Backend development uses languages like Python, Java, and Node.js.",
+        
+        "file7.txt": "Data science combines statistics, programming, and domain expertise to extract insights from data. Common tools include Python libraries like Pandas, NumPy, and Scikit-learn for analysis and modeling.",
+        
+        "file8.txt": "Cybersecurity protects computer systems and networks from digital attacks. Common threats include malware, phishing, and ransomware. Security measures include firewalls, encryption, and authentication.",
+        
+        "file9.txt": "Neural networks are computing systems inspired by biological neural networks. They consist of interconnected nodes (neurons) that process information. Artificial neural networks power many AI applications today.",
+        
+        "file10.txt": "Cloud computing provides on-demand access to computing resources over the internet. Services include Infrastructure as a Service (IaaS), Platform as a Service (PaaS), and Software as a Service (SaaS)."
+    }
+    
+    # Create files
+    for filename, content in sample_texts.items():
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(content)
+    
+    return list(sample_texts.keys())
 
-def load_text_files(directory: str) -> List[Tuple[str, str]]:
-    """Load all text files from directory."""
-    files_content = []
+def load_documents_simple():
+    """Load documents without LangChain dependencies."""
     
-    if not os.path.exists(directory):
-        return files_content
+    file_paths = create_sample_files()
+    documents = []
     
-    for filename in os.listdir(directory):
-        if filename.endswith('.txt'):
-            filepath = os.path.join(directory, filename)
-            try:
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                    files_content.append((filename, content))
-            except Exception as e:
-                print(f"Error reading {filename}: {e}")
+    for path in file_paths:
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                # Create a simple document structure
+                doc = {
+                    'content': content,
+                    'metadata': {'source_file': path}
+                }
+                documents.append(doc)
+                print(f"✅ Loaded: {path}")
+        except Exception as e:
+            print(f"❌ Error loading {path}: {e}")
     
-    return files_content
+    return documents
 
-def demo_vector_store():
-    """Demonstrate vector store functionality."""
+def load_documents_langchain():
+    """Load documents using LangChain."""
     
-    print("=" * 60)
-    print("Embeddings & Vector Store Demo with FAISS")
-    print("=" * 60)
+    file_paths = create_sample_files()
+    documents = []
     
-    # Create sample files
-    print("\n1. Creating 10 sample text files...")
-    created_files = create_sample_text_files()
-    print(f"Created {len(created_files)} files in 'sample_texts' directory")
+    for path in file_paths:
+        try:
+            loader = TextLoader(path, encoding="utf-8")
+            docs = loader.load()
+            # Add filename as metadata
+            for doc in docs:
+                doc.metadata["source_file"] = path
+            documents.extend(docs)
+            print(f"✅ Loaded: {path}")
+        except Exception as e:
+            print(f"❌ Error loading {path}: {e}")
     
-    # Initialize vector store
-    print("\n2. Initializing Vector Store...")
-    vector_store = VectorStore()
-    print(f"Using {'Sentence Transformers' if vector_store.use_sentence_transformers else 'Simple embeddings'}")
-    print(f"Embedding dimension: {vector_store.dimension}")
-    print(f"FAISS available: {FAISS_AVAILABLE}")
+    return documents
+
+# Load documents
+print("📁 Creating and loading 10 text files...")
+if LANGCHAIN_AVAILABLE:
+    documents = load_documents_langchain()
+else:
+    documents = load_documents_simple()
+
+# ----------------------
+# 2️⃣ Simple Vector Search (without external APIs)
+# ----------------------
+
+class SimpleVectorSearch:
+    """Simple similarity search without external dependencies."""
     
-    # Load and index files
-    print("\n3. Loading and indexing files...")
-    files_content = load_text_files("sample_texts")
+    def __init__(self, documents):
+        self.documents = documents
     
-    for filename, content in files_content:
-        metadata = {"filename": filename, "length": len(content)}
-        vector_store.add_document(content, metadata)
-        print(f"  ✓ Indexed: {filename}")
-    
-    print(f"\nTotal documents indexed: {len(vector_store.documents)}")
-    
-    # Perform searches
-    print("\n4. Performing similarity searches...")
-    
-    queries = [
-        "Which file talks about AI?",
-        "Tell me about cooking",
-        "What discusses neural networks?",
-        "Sports and games information"
-    ]
-    
-    for query in queries:
-        print(f"\n🔍 Query: '{query}'")
-        print("-" * 40)
+    def search(self, query: str, k: int = 3) -> List[Dict]:
+        """Search for similar documents using keyword matching."""
+        query_words = set(query.lower().split())
+        scores = []
         
-        results = vector_store.search(query, k=3)
+        for doc in self.documents:
+            if LANGCHAIN_AVAILABLE:
+                content = doc.page_content.lower()
+                source_file = doc.metadata.get("source_file", "Unknown")
+            else:
+                content = doc['content'].lower()
+                source_file = doc['metadata']['source_file']
+            
+            # Calculate simple similarity score
+            doc_words = set(content.split())
+            common_words = query_words & doc_words
+            score = len(common_words) / len(query_words) if query_words else 0
+            
+            scores.append({
+                'score': score,
+                'content': doc['content'] if not LANGCHAIN_AVAILABLE else doc.page_content,
+                'source_file': source_file
+            })
         
-        for i, (doc, score, metadata) in enumerate(results, 1):
-            filename = metadata.get('filename', 'Unknown')
-            print(f"{i}. File: {filename}")
-            print(f"   Score: {score:.4f}")
-            print(f"   Content: {doc[:100]}...")
-            print()
+        # Sort by score and return top k
+        scores.sort(key=lambda x: x['score'], reverse=True)
+        return scores[:k]
+
+# ----------------------
+# 3️⃣ Search for AI-related content
+# ----------------------
+
+def search_with_langchain():
+    """Search using LangChain + FAISS (if API key available)."""
     
-    # Save vector store
-    print("\n5. Saving vector store...")
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key or api_key.startswith("sk-or-v1-"):
+        print("❌ No valid OpenAI API key found")
+        return False
+    
     try:
-        vector_store.save("my_vector_store")
-        print("✓ Vector store saved successfully!")
+        # Split documents into chunks
+        splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+        split_docs = []
+        for doc in documents:
+            chunks = splitter.split_text(doc.page_content)
+            for chunk in chunks:
+                split_docs.append(Document(page_content=chunk, metadata=doc.metadata))
+        
+        # Create embeddings and FAISS index
+        embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+        faiss_index = FAISS.from_documents(split_docs, embeddings)
+        
+        # Query FAISS
+        query = "Which file talks about AI?"
+        results = faiss_index.similarity_search(query, k=3)
+        
+        print(f"🤖 LangChain + FAISS Results for: '{query}'\n")
+        for i, res in enumerate(results):
+            source_file = res.metadata.get("source_file", "Unknown")
+            print(f"{i+1}. 📄 Source: {source_file}")
+            print(f"   📝 Text: {res.page_content[:150]}...\n")
+        
+        return True
+        
     except Exception as e:
-        print(f"Error saving: {e}")
+        print(f"❌ LangChain error: {e}")
+        return False
+
+def search_with_simple_method():
+    """Search using simple keyword matching."""
     
-    print("\n" + "=" * 60)
-    print("Demo completed!")
-    print("=" * 60)
+    print("🔍 Simple Vector Search Results:\n")
+    
+    searcher = SimpleVectorSearch(documents)
+    query = "Which file talks about AI?"
+    results = searcher.search(query, k=3)
+    
+    print(f"Query: '{query}'\n")
+    for i, result in enumerate(results):
+        print(f"{i+1}. 📄 Source: {result['source_file']}")
+        print(f"   🎯 Score: {result['score']:.3f}")
+        print(f"   📝 Text: {result['content'][:150]}...\n")
+
+# ----------------------
+# 4️⃣ Run the search
+# ----------------------
+
+def main():
+    """Main function to run the demo."""
+    
+    print("🎯 Day 18: Embeddings & Vector Stores Demo")
+    print("=" * 50)
+    print()
+    
+    if not documents:
+        print("❌ No documents loaded!")
+        return
+    
+    print(f"📊 Loaded {len(documents)} documents successfully!\n")
+    
+    # Try LangChain + FAISS first
+    if LANGCHAIN_AVAILABLE:
+        success = search_with_langchain()
+        if success:
+            print("\n" + "="*50)
+            print("✅ LangChain + FAISS search completed!")
+            return
+    
+    # Fallback to simple search
+    print("💡 Using simple keyword-based search...")
+    search_with_simple_method()
+    
+    print("="*50)
+    print("✅ Demo completed!")
+    print("\n💡 Tips:")
+    print("   - Add a valid OpenAI API key for advanced embeddings")
+    print("   - Install: pip install langchain-openai")
+    print("   - Format: OPENAI_API_KEY=sk-...")
 
 if __name__ == "__main__":
-    demo_vector_store()
+    main()

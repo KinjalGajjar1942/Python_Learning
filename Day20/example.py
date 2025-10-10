@@ -1,6 +1,7 @@
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel
+from PyPDF2 import PdfReader
 from langchain.docstore.document import Document
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
@@ -16,25 +17,37 @@ os.environ["OPENAI_API_KEY"] = "sk-or-v1-1e8a839fce9a655e82f699b2c44c703c497858b
 # ----------------------
 # Initialize FastAPI
 # ----------------------
-app = FastAPI(title="QA API")
+app = FastAPI(title="PDF Q&A Bot")
 
 # ----------------------
-# Pydantic model for POST input
+# Pydantic model for POST query
 # ----------------------
 class QARequest(BaseModel):
-    texts: list[str]   # List of input texts
-    query: str         # Question
+    query: str
 
 # ----------------------
-# Endpoint: POST /qa
+# Endpoint: POST /upload-pdf
+# Upload PDF and create FAISS index
 # ----------------------
-@app.post("/qa")
-def answer_qa(request: QARequest):
+faiss_index = None  # Global variable to store FAISS index
+
+@app.post("/upload-pdf")
+async def upload_pdf(file: UploadFile = File(...)):
+    global faiss_index
     try:
-        # 1️⃣ Wrap input texts as Document objects
-        docs = [Document(page_content=t, metadata={"source": f"input_{i}"}) for i, t in enumerate(request.texts)]
+        if not file.filename.endswith(".pdf"):
+            raise HTTPException(status_code=400, detail="Only PDF files are allowed")
 
-        # 2️⃣ Split text into smaller chunks
+        # 1️⃣ Read PDF content
+        pdf = PdfReader(file.file)
+        texts = []
+        for page in pdf.pages:
+            texts.append(page.extract_text())
+
+        # 2️⃣ Wrap texts as Document objects
+        docs = [Document(page_content=t, metadata={"source": f"page_{i}"}) for i, t in enumerate(texts)]
+
+        # 3️⃣ Split text into smaller chunks
         splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
         split_docs = []
         for doc in docs:
@@ -42,20 +55,36 @@ def answer_qa(request: QARequest):
             for chunk in chunks:
                 split_docs.append(Document(page_content=chunk, metadata=doc.metadata))
 
-        # 3️⃣ Create embeddings
+        # 4️⃣ Create embeddings
         embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
-        # 4️⃣ Store in FAISS
+        # 5️⃣ Store in FAISS
         faiss_index = FAISS.from_documents(split_docs, embeddings)
 
-        # 5️⃣ Build retrieval chain
+        return {"message": f"PDF '{file.filename}' uploaded and indexed successfully."}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ----------------------
+# Endpoint: POST /qa
+# Ask question from loaded PDF
+# ----------------------
+@app.post("/qa")
+def ask_question(request: QARequest):
+    global faiss_index
+    if faiss_index is None:
+        raise HTTPException(status_code=400, detail="No PDF uploaded yet")
+
+    try:
+        # 1️⃣ Create retrieval QA chain
         retriever = faiss_index.as_retriever()
         qa_chain = RetrievalQA.from_chain_type(
             llm=ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0),
             retriever=retriever
         )
 
-        # 6️⃣ Run query
+        # 2️⃣ Run query
         answer = qa_chain.run(request.query)
         return {"answer": answer}
 

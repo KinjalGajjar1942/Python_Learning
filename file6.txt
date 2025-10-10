@@ -1,0 +1,1 @@
+Web development involves creating websites and web applications. Frontend technologies include HTML, CSS, and JavaScript. Backend development uses languages like Python, Java, and Node.js.

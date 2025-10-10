@@ -1,0 +1,1 @@
+Python is a versatile programming language used in web development, data science, and automation. Its simple syntax makes it beginner-friendly. Popular frameworks include Django, Flask, and FastAPI.

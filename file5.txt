@@ -1,0 +1,1 @@
+Deep learning uses artificial neural networks with multiple layers to process complex data. Convolutional Neural Networks (CNNs) excel at image recognition, while Transformers are powerful for natural language tasks.

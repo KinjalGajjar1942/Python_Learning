@@ -1,0 +1,1 @@
+Neural networks are computing systems inspired by biological neural networks. They consist of interconnected nodes (neurons) that process information. Artificial neural networks power many AI applications today.

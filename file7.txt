@@ -1,0 +1,1 @@
+Data science combines statistics, programming, and domain expertise to extract insights from data. Common tools include Python libraries like Pandas, NumPy, and Scikit-learn for analysis and modeling.
