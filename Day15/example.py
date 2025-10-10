@@ -27,10 +27,11 @@ llm = ChatOpenAI(
 chain = LLMChain(llm=llm, prompt=prompt)
 
 # Input sentence
-input_sentence = "Give me that report now."
+if __name__ == "__main__":
+    input_sentence = "Give me that report now."
 
-# Use invoke() instead of run() (deprecated)
-polite_sentence = chain.invoke({"sentence": input_sentence})
+    # Use invoke() instead of run() (deprecated)
+    polite_sentence = chain.invoke({"sentence": input_sentence})
 
-print("Original:", input_sentence)
-print("Polite:", polite_sentence)
+    print("Original:", input_sentence)
+    print("Polite:", polite_sentence)

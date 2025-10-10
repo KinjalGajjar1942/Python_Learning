@@ -62,6 +62,7 @@ As AI models improve, ethical considerations and data privacy become increasingl
 # -------------------------------
 # 7. Run the chain
 # -------------------------------
-keywords = overall_chain.run(input_text)
+if __name__ == "__main__":
+    keywords = overall_chain.run(input_text)
 
-print("Extracted Keywords:", keywords)
+    print("Extracted Keywords:", keywords)

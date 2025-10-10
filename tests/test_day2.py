@@ -4,7 +4,7 @@ import importlib.util
 import sys
 import os
 
-day2_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Day 2'))
+day2_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Day2'))
 sys.path.insert(0, day2_path)
 
 modules = [
